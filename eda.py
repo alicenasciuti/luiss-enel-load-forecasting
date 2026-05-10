@@ -19,6 +19,14 @@ Contents
   `end` (string dates).
 - plot_seasonal_boxplots(df, col): three boxplots side by side, by hour of
   day, day of week and month.
+- decompose_series(series, period, model='additive'): seasonal decomposition
+  (trend + seasonal + residual) using statsmodels.
+- adf_test(series, name=''): Augmented Dickey-Fuller stationarity test;
+  prints results and returns the dictionary.
+- plot_acf_pacf(series, lags, title=''): autocorrelation and partial
+  autocorrelation plots side by side.
+- plot_correlation_heatmap(df, cols=None): Pearson correlation heatmap among
+  numeric columns.
 
 Role in the project
 -------------------
@@ -114,20 +122,6 @@ def locate_missing_blocks(
 ) -> pd.DataFrame:
     """
     Locate contiguous blocks of NaN longer than `min_gap_minutes` in `col`.
-
-    Parameters
-    ----------
-    df : pandas.DataFrame
-        Input DataFrame indexed by timestamp.
-    col : str
-        Column name to inspect.
-    min_gap_minutes : int
-        Minimum length (in minutes) of NaN runs to be reported.
-
-    Returns
-    -------
-    pandas.DataFrame
-        Columns: ['start', 'end', 'duration_minutes'], one row per block.
     """
     is_na = df[col].isna().to_numpy()
     timestamps = df.index.to_numpy()
@@ -149,7 +143,6 @@ def locate_missing_blocks(
                     "end": pd.Timestamp(timestamps[i - 1]),
                     "duration_minutes": duration,
                 })
-    # Catch a run that ends at the very last row.
     if in_run:
         duration = len(is_na) - run_start
         if duration >= min_gap_minutes:
@@ -164,15 +157,9 @@ def locate_missing_blocks(
 
 # --- Time-series visualisations --------------------------------------------
 
-def plot_full_series(
-    df: pd.DataFrame,
-    col: str,
-    freq: str = "D",
-    ax=None,
-):
+def plot_full_series(df, col, freq="D", ax=None):
     """
     Plot the full time series of `col` resampled to `freq` (default daily mean).
-    Useful to visualise the global behaviour of the series.
     """
     series = df[col].resample(freq).mean()
     if ax is None:
@@ -187,16 +174,9 @@ def plot_full_series(
     return fig, ax
 
 
-def plot_zoom(
-    df: pd.DataFrame,
-    col: str,
-    start: str,
-    end: str,
-    ax=None,
-):
+def plot_zoom(df, col, start, end, ax=None):
     """
     Plot `col` between `start` and `end` (string dates parseable by pandas).
-    Used to inspect daily/weekly patterns at minute resolution.
     """
     series = df.loc[start:end, col]
     if ax is None:
@@ -211,15 +191,14 @@ def plot_zoom(
     return fig, ax
 
 
-def plot_seasonal_boxplots(df: pd.DataFrame, col: str):
+def plot_seasonal_boxplots(df, col):
     """
     Three boxplots side by side: distribution of `col` by hour of day,
-    day of week and month. Reveals daily, weekly and yearly seasonalities.
+    day of week and month.
     """
     s = df[col].dropna()
     fig, axes = plt.subplots(1, 3, figsize=(16, 4))
 
-    # Hour of day.
     by_hour = [s[s.index.hour == h].values for h in range(24)]
     axes[0].boxplot(by_hour, showfliers=False)
     axes[0].set_title(f"{col} by hour of day")
@@ -227,13 +206,11 @@ def plot_seasonal_boxplots(df: pd.DataFrame, col: str):
     axes[0].set_xticks(range(1, 25, 3))
     axes[0].set_xticklabels(range(0, 24, 3))
 
-    # Day of week.
     by_dow = [s[s.index.dayofweek == d].values for d in range(7)]
     axes[1].boxplot(by_dow, showfliers=False)
     axes[1].set_title(f"{col} by day of week")
     axes[1].set_xlabel("Day (Mon=0)")
 
-    # Month.
     by_month = [s[s.index.month == m].values for m in range(1, 13)]
     axes[2].boxplot(by_month, showfliers=False)
     axes[2].set_title(f"{col} by month")
@@ -243,3 +220,163 @@ def plot_seasonal_boxplots(df: pd.DataFrame, col: str):
         ax.grid(alpha=0.3)
     fig.tight_layout()
     return fig, axes
+
+
+# --- Step 4: Technical analysis (decomposition, stationarity, ACF/PACF) ----
+
+def decompose_series(series: pd.Series, period: int, model: str = "additive"):
+    """
+    Seasonal decomposition (trend + seasonal + residual) of a time series.
+
+    Parameters
+    ----------
+    series : pandas.Series
+        Time series to decompose. Must be regular (no missing index).
+    period : int
+        Length of the seasonal cycle in number of observations.
+        E.g. 24 for daily seasonality on hourly data.
+    model : {'additive', 'multiplicative'}
+        Decomposition model. 'additive' assumes constant amplitude of the
+        seasonal component; 'multiplicative' lets it scale with the level.
+
+    Returns
+    -------
+    matplotlib.figure.Figure
+        The figure with the four-panel decomposition plot.
+    statsmodels.tsa.seasonal.DecomposeResult
+        The decomposition result object.
+    """
+    from statsmodels.tsa.seasonal import seasonal_decompose
+
+    result = seasonal_decompose(series, model=model, period=period)
+    fig = result.plot()
+    fig.set_size_inches(12, 8)
+    fig.suptitle(
+        f"Seasonal decomposition (period={period}, model={model})",
+        y=1.02,
+    )
+    fig.tight_layout()
+    return fig, result
+
+
+def adf_test(series: pd.Series, name: str = "") -> dict:
+    """
+    Augmented Dickey-Fuller test for stationarity.
+
+    Null hypothesis (H0): the series has a unit root (i.e. it is non-stationary).
+    A small p-value (<0.05) lets us reject H0 and conclude that the series is
+    stationary.
+
+    Parameters
+    ----------
+    series : pandas.Series
+        The time series to test.
+    name : str
+        Optional name to print before the results.
+
+    Returns
+    -------
+    dict
+        Keys: 'adf_statistic', 'p_value', 'n_lags', 'n_obs',
+        'critical_values', 'is_stationary' (True if p<0.05).
+    """
+    from statsmodels.tsa.stattools import adfuller
+
+    s = series.dropna()
+    result = adfuller(s, autolag="AIC")
+
+    out = {
+        "adf_statistic": result[0],
+        "p_value": result[1],
+        "n_lags": result[2],
+        "n_obs": result[3],
+        "critical_values": result[4],
+        "is_stationary": result[1] < 0.05,
+    }
+
+    if name:
+        print(f"--- ADF test: {name} ---")
+    print(f"ADF Statistic:  {out['adf_statistic']:.4f}")
+    print(f"p-value:        {out['p_value']:.6f}")
+    print(f"# lags used:    {out['n_lags']}")
+    print(f"# observations: {out['n_obs']}")
+    print("Critical values:")
+    for level, val in out["critical_values"].items():
+        print(f"  {level}: {val:.4f}")
+    verdict = "STATIONARY ✅" if out["is_stationary"] else "NON-STATIONARY ❌"
+    print(f"Verdict (alpha=0.05): {verdict}")
+    print()
+
+    return out
+
+
+def plot_acf_pacf(series: pd.Series, lags: int = 48, title: str = ""):
+    """
+    Plot autocorrelation (ACF) and partial autocorrelation (PACF) side by side.
+
+    Parameters
+    ----------
+    series : pandas.Series
+        The time series to analyse.
+    lags : int
+        Number of lags to display. Default 48 (= 2 days for hourly data).
+    title : str
+        Optional title prefix.
+
+    Returns
+    -------
+    matplotlib.figure.Figure
+    """
+    from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
+
+    fig, axes = plt.subplots(1, 2, figsize=(14, 4))
+    plot_acf(series.dropna(), lags=lags, ax=axes[0])
+    axes[0].set_title(f"ACF{' — ' + title if title else ''}")
+    plot_pacf(series.dropna(), lags=lags, ax=axes[1], method="ywm")
+    axes[1].set_title(f"PACF{' — ' + title if title else ''}")
+    for ax in axes:
+        ax.grid(alpha=0.3)
+    fig.tight_layout()
+    return fig, axes
+
+
+def plot_correlation_heatmap(df: pd.DataFrame, cols=None):
+    """
+    Pearson correlation heatmap among the (numeric) columns.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Input DataFrame.
+    cols : list of str, optional
+        Restrict the heatmap to these columns. If None, use all numeric ones.
+
+    Returns
+    -------
+    matplotlib.figure.Figure
+    """
+    if cols is not None:
+        sub = df[cols]
+    else:
+        sub = df.select_dtypes(include=[np.number])
+
+    corr = sub.corr()
+    fig, ax = plt.subplots(figsize=(8, 6))
+    im = ax.imshow(corr, cmap="RdBu_r", vmin=-1, vmax=1)
+    ax.set_xticks(range(len(corr.columns)))
+    ax.set_yticks(range(len(corr.columns)))
+    ax.set_xticklabels(corr.columns, rotation=45, ha="right")
+    ax.set_yticklabels(corr.columns)
+
+    # Annotate cells with the correlation value.
+    for i in range(len(corr.columns)):
+        for j in range(len(corr.columns)):
+            ax.text(j, i, f"{corr.iloc[i, j]:.2f}",
+                    ha="center", va="center",
+                    color="black" if abs(corr.iloc[i, j]) < 0.5 else "white",
+                    fontsize=9)
+
+    fig.colorbar(im, ax=ax, label="Pearson correlation")
+    ax.set_title("Correlation heatmap")
+    fig.tight_layout()
+    return fig, ax
