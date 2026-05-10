@@ -23,6 +23,8 @@ Contents
   (trend + seasonal + residual) using statsmodels.
 - adf_test(series, name=''): Augmented Dickey-Fuller stationarity test;
   prints results and returns the dictionary.
+- kpss_test(series, name=''): KPSS stationarity test (complement to ADF);
+  prints results and returns the dictionary.
 - plot_acf_pacf(series, lags, title=''): autocorrelation and partial
   autocorrelation plots side by side.
 - plot_correlation_heatmap(df, cols=None): Pearson correlation heatmap among
@@ -300,6 +302,57 @@ def adf_test(series: pd.Series, name: str = "") -> dict:
     print(f"p-value:        {out['p_value']:.6f}")
     print(f"# lags used:    {out['n_lags']}")
     print(f"# observations: {out['n_obs']}")
+    print("Critical values:")
+    for level, val in out["critical_values"].items():
+        print(f"  {level}: {val:.4f}")
+    verdict = "STATIONARY ✅" if out["is_stationary"] else "NON-STATIONARY ❌"
+    print(f"Verdict (alpha=0.05): {verdict}")
+    print()
+
+    return out
+
+def kpss_test(series: pd.Series, name: str = "") -> dict:
+    """
+    KPSS test for stationarity.
+
+    Null hypothesis (H0): the series is stationary (opposite of ADF).
+    A small p-value (<0.05) lets us reject H0 and conclude that the series
+    is NON-stationary. Used together with ADF for a robust diagnosis:
+    - ADF rejects H0 + KPSS does not reject H0  -> stationary
+    - ADF does not reject + KPSS rejects        -> non-stationary
+    - both reject / both don't                  -> ambiguous, investigate
+
+    Parameters
+    ----------
+    series : pandas.Series
+        The time series to test.
+    name : str
+        Optional name to print before the results.
+
+    Returns
+    -------
+    dict
+        Keys: 'kpss_statistic', 'p_value', 'n_lags', 'critical_values',
+        'is_stationary' (True if p>=0.05).
+    """
+    from statsmodels.tsa.stattools import kpss
+
+    s = series.dropna()
+    stat, p_value, n_lags, crit = kpss(s, regression="c", nlags="auto")
+
+    out = {
+        "kpss_statistic": stat,
+        "p_value": p_value,
+        "n_lags": n_lags,
+        "critical_values": crit,
+        "is_stationary": p_value >= 0.05,
+    }
+
+    if name:
+        print(f"--- KPSS test: {name} ---")
+    print(f"KPSS Statistic: {out['kpss_statistic']:.4f}")
+    print(f"p-value:        {out['p_value']:.6f}")
+    print(f"# lags used:    {out['n_lags']}")
     print("Critical values:")
     for level, val in out["critical_values"].items():
         print(f"  {level}: {val:.4f}")
