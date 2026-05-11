@@ -216,6 +216,53 @@ class SARIMAForecaster:
 
         return pd.Series(preds, index=y_test.index, name="sarima_forecast")
 
+    def forecast_rolling_strided(
+        self,
+        y_test: pd.Series,
+        stride: int = 24,
+    ) -> pd.Series:
+        """
+        Strided rolling forecast: predict `stride` steps ahead at a time,
+        then update the state with the corresponding `stride` actual values
+        (no parameter re-estimation). With stride=24 on hourly data this is
+        the standard "day-ahead" forecasting protocol used in operational
+        electric load forecasting.
+
+        Parameters
+        ----------
+        y_test : pandas.Series
+            Test series, hourly indexed, immediately following the training
+            series.
+        stride : int
+            Forecasting horizon in number of observations between successive
+            state updates. Default 24 (= one day on hourly data).
+
+        Returns
+        -------
+        pandas.Series
+            Forecast indexed exactly as `y_test`. The last block may be
+            shorter than `stride` if `len(y_test)` is not a multiple of it.
+        """
+        if self.results_ is None:
+            raise RuntimeError("Call .fit() before .forecast_rolling_strided().")
+
+        results = self.results_
+        n = len(y_test)
+        preds = np.zeros(n, dtype=float)
+
+        i = 0
+        while i < n:
+            block_len = min(stride, n - i)
+            # 1. Predict `block_len` steps ahead from the current state.
+            block_pred = results.forecast(steps=block_len)
+            preds[i : i + block_len] = block_pred.to_numpy()
+            # 2. Update the state with the actual block (no refit).
+            results = results.append(y_test.iloc[i : i + block_len], refit=False)
+            i += block_len
+
+        return pd.Series(preds, index=y_test.index, name="sarima_forecast")
+        
+
     def summary(self):
         """Return the statsmodels summary table (used in the report)."""
         if self.results_ is None:
