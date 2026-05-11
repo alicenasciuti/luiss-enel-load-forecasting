@@ -96,16 +96,30 @@ class SARIMAForecaster:
         if self.results_ is None:
             raise RuntimeError("Call .fit() before .forecast_rolling_strided().")
 
-        results = self.results_
+        from statsmodels.tsa.statespace.sarimax import SARIMAX
+
         n = len(y_test)
         preds = np.zeros(n, dtype=float)
+
+        full_series = pd.concat([self.results_.data.orig_endog, y_test])
+        params = self.results_.params
 
         i = 0
         while i < n:
             block_len = min(stride, n - i)
-            block_pred = results.forecast(steps=block_len)
+            end_idx = len(full_series) - (n - i)
+            current_data = full_series.iloc[:end_idx]
+
+            tmp_model = SARIMAX(
+                current_data,
+                order=self.order,
+                seasonal_order=self.seasonal_order,
+                enforce_stationarity=self.enforce_stationarity,
+                enforce_invertibility=self.enforce_invertibility,
+            )
+            tmp_results = tmp_model.filter(params)
+            block_pred = tmp_results.forecast(steps=block_len)
             preds[i : i + block_len] = block_pred.to_numpy()
-            results = results.append(y_test.iloc[i : i + block_len], refit=False)
             i += block_len
 
         return pd.Series(preds, index=y_test.index, name="sarima_forecast")
