@@ -25,22 +25,12 @@ import numpy as np
 
 
 def set_global_seed(seed: int = 42) -> None:
-    """
-    Set the random seed for the standard library, NumPy and, if available,
-    PyTorch and TensorFlow. Called once at the start of any script that
-    involves randomness (model training, train/test shuffling, etc.).
-
-    Parameters
-    ----------
-    seed : int
-        Seed value. Default is 42.
-    """
+    
     random.seed(seed)
     np.random.seed(seed)
     os.environ["PYTHONHASHSEED"] = str(seed)
 
-    # Optional deep-learning frameworks: imported inside the function so this
-    # module does not require them at import time.
+    
     try:
         import torch
         torch.manual_seed(seed)
