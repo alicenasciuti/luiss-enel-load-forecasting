@@ -45,27 +45,12 @@ NUMERIC_COLS = [
 
 
 def load_raw_data(path) -> pd.DataFrame:
-    """
-    Load the raw household power consumption dataset.
-
-    Parameters
-    ----------
-    path : str or Path
-        Full path to `household_power_consumption.txt`.
-
-    Returns
-    -------
-    pandas.DataFrame
-        DataFrame with a sorted DatetimeIndex named 'timestamp' and the seven
-        measurement columns as float64.
-    """
+    
     raw_path = Path(path)
     if not raw_path.exists():
         raise FileNotFoundError(f"Raw dataset not found at {raw_path}.")
 
-    # The raw file uses ';' as separator and '?' as missing-value marker.
-    # `low_memory=False` avoids pandas DtypeWarning on the mixed object dtype
-    # produced by the '?' tokens before they are coerced to NaN.
+    
     df = pd.read_csv(
         raw_path,
         sep=";",
@@ -74,15 +59,13 @@ def load_raw_data(path) -> pd.DataFrame:
         dtype={col: "string" for col in NUMERIC_COLS},
     )
 
-    # Build the timestamp index. Format is fixed (DD/MM/YYYY HH:MM:SS),
-    # so we pass it explicitly: this is much faster than letting pandas
-    # infer the format on 2M rows.
+   
     timestamp = pd.to_datetime(
         df[DATE_COL] + " " + df[TIME_COL],
         format="%d/%m/%Y %H:%M:%S",
     )
 
-    # Cast numeric columns to float64 (NaNs are preserved automatically).
+    
     for col in NUMERIC_COLS:
         df[col] = pd.to_numeric(df[col], errors="coerce").astype(np.float64)
 
