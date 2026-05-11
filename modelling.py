@@ -223,3 +223,250 @@ class SARIMAForecaster:
         return self.results_.summary()
 
 
+# ---------------------------------------------------------------------------
+# 3. LSTM
+# ---------------------------------------------------------------------------
+
+def _make_sliding_windows(
+    series: np.ndarray,
+    lookback: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Build (X, y) sliding-window pairs for one-step-ahead training.
+
+    Given a 1-D array of length T, produces:
+    - X of shape (T - lookback, lookback, 1): each row is `lookback`
+      consecutive past observations.
+    - y of shape (T - lookback,): the next observation immediately after
+      the window.
+
+    Used internally by `LSTMForecaster.fit`.
+
+    Parameters
+    ----------
+    series : numpy.ndarray (1-D)
+        Time series (already standardised).
+    lookback : int
+        Number of past observations used as input.
+    """
+    series = np.asarray(series, dtype=np.float32).reshape(-1)
+    n = len(series)
+    n_samples = n - lookback
+    if n_samples <= 0:
+        raise ValueError(
+            f"Series too short ({n}) for the requested lookback={lookback}."
+        )
+    X = np.zeros((n_samples, lookback, 1), dtype=np.float32)
+    y = np.zeros(n_samples, dtype=np.float32)
+    for i in range(n_samples):
+        X[i, :, 0] = series[i : i + lookback]
+        y[i] = series[i + lookback]
+    return X, y
+
+
+class LSTMForecaster:
+    """
+    Single-layer LSTM for one-step-ahead univariate hourly forecasting.
+
+    Architecture
+    ------------
+    Input  : (batch, lookback, 1)
+    LSTM   : hidden_size units, num_layers stacked
+    Linear : hidden_size -> 1
+    Output : (batch,)
+
+    The series is standardised internally using the training-set mean and
+    standard deviation (the same statistics are then applied to the test
+    set, so no information leaks from test to train).
+
+    Forecasting protocol
+    --------------------
+    `forecast_rolling(y_test)` performs rolling one-step-ahead prediction:
+    at each test timestamp t the LSTM observes the *actual* last
+    `lookback` hours (taken from train+test history) and predicts the
+    value at t. Identical comparison protocol to the Naive baseline and
+    SARIMA.
+
+    Parameters
+    ----------
+    lookback : int
+        Number of past hours used as input. Default 48 (= 2 days).
+    hidden_size : int
+        Number of LSTM hidden units. Default 64.
+    num_layers : int
+        Number of stacked LSTM layers. Default 1.
+    dropout : float
+        Dropout probability between LSTM layers (active only if
+        num_layers > 1).
+    learning_rate : float
+        Adam learning rate. Default 1e-3.
+    n_epochs : int
+        Number of training epochs. Default 20.
+    batch_size : int
+        Mini-batch size. Default 128.
+    device : str or None
+        'cuda' or 'cpu'. If None, auto-detected.
+    """
+
+    def __init__(
+        self,
+        lookback: int = 48,
+        hidden_size: int = 64,
+        num_layers: int = 1,
+        dropout: float = 0.0,
+        learning_rate: float = 1e-3,
+        n_epochs: int = 20,
+        batch_size: int = 128,
+        device: str | None = None,
+    ):
+        self.lookback = lookback
+        self.hidden_size = hidden_size
+        self.num_layers = num_layers
+        self.dropout = dropout
+        self.learning_rate = learning_rate
+        self.n_epochs = n_epochs
+        self.batch_size = batch_size
+        self.device = device
+
+        self.model_ = None
+        self.scaler_mean_: float | None = None
+        self.scaler_std_: float | None = None
+        self.history_: pd.Series | None = None
+        self.loss_curve_: list = []
+
+    # -- internal helpers ---------------------------------------------------
+
+    def _build_model(self):
+        """Construct the PyTorch LSTM module."""
+        import torch.nn as nn
+
+        class _LSTMNet(nn.Module):
+            def __init__(self, hidden_size, num_layers, dropout):
+                super().__init__()
+                self.lstm = nn.LSTM(
+                    input_size=1,
+                    hidden_size=hidden_size,
+                    num_layers=num_layers,
+                    dropout=dropout if num_layers > 1 else 0.0,
+                    batch_first=True,
+                )
+                self.head = nn.Linear(hidden_size, 1)
+
+            def forward(self, x):
+                # x: (batch, lookback, 1)
+                out, _ = self.lstm(x)
+                last = out[:, -1, :]              # take the last hidden state
+                return self.head(last).squeeze(-1)
+
+        return _LSTMNet(self.hidden_size, self.num_layers, self.dropout)
+
+    def _resolve_device(self):
+        import torch
+        if self.device is not None:
+            return torch.device(self.device)
+        return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    def _standardise(self, series: np.ndarray) -> np.ndarray:
+        return (series - self.scaler_mean_) / self.scaler_std_
+
+    def _inverse_standardise(self, series: np.ndarray) -> np.ndarray:
+        return series * self.scaler_std_ + self.scaler_mean_
+
+    # -- public API ---------------------------------------------------------
+
+    def fit(self, y_train: pd.Series) -> "LSTMForecaster":
+        """
+        Train the LSTM on the standardised training series.
+
+        Standardisation statistics (mean, std) are estimated on the
+        training set only and stored for later use on the test set.
+        """
+        import torch
+        from torch.utils.data import DataLoader, TensorDataset
+
+        self.history_ = y_train.copy()
+
+        values = y_train.to_numpy(dtype=np.float32)
+        self.scaler_mean_ = float(values.mean())
+        self.scaler_std_ = float(values.std() + 1e-8)
+        scaled = self._standardise(values)
+
+        X, y = _make_sliding_windows(scaled, lookback=self.lookback)
+
+        device = self._resolve_device()
+        X_t = torch.from_numpy(X).to(device)
+        y_t = torch.from_numpy(y).to(device)
+        loader = DataLoader(
+            TensorDataset(X_t, y_t),
+            batch_size=self.batch_size,
+            shuffle=True,
+        )
+
+        self.model_ = self._build_model().to(device)
+        optimiser = torch.optim.Adam(self.model_.parameters(), lr=self.learning_rate)
+        criterion = torch.nn.MSELoss()
+
+        self.loss_curve_ = []
+        self.model_.train()
+        for _ in range(self.n_epochs):
+            epoch_loss = 0.0
+            n_seen = 0
+            for xb, yb in loader:
+                optimiser.zero_grad()
+                pred = self.model_(xb)
+                loss = criterion(pred, yb)
+                loss.backward()
+                optimiser.step()
+                epoch_loss += loss.item() * xb.size(0)
+                n_seen += xb.size(0)
+            self.loss_curve_.append(epoch_loss / n_seen)
+        return self
+
+    def forecast_rolling(self, y_test: pd.Series) -> pd.Series:
+        """
+        Rolling one-step-ahead forecast on `y_test`.
+
+        At step t the model receives the actual last `lookback` hourly
+        values (drawn from the train+test history up to t-1) and predicts
+        the value at t.
+
+        Parameters
+        ----------
+        y_test : pandas.Series
+            Test series, hourly indexed, immediately following the training
+            series.
+
+        Returns
+        -------
+        pandas.Series
+            Forecast indexed exactly as `y_test`.
+        """
+        import torch
+
+        if self.model_ is None:
+            raise RuntimeError("Call .fit() before .forecast_rolling().")
+
+        device = self._resolve_device()
+        self.model_.eval()
+
+        # Concatenate train and test, standardise with the train statistics.
+        full = np.concatenate([
+            self.history_.to_numpy(dtype=np.float32),
+            y_test.to_numpy(dtype=np.float32),
+        ])
+        full_scaled = self._standardise(full)
+        n_train = len(self.history_)
+        n_test = len(y_test)
+
+        preds_scaled = np.zeros(n_test, dtype=np.float32)
+        with torch.no_grad():
+            for i in range(n_test):
+                start = n_train + i - self.lookback
+                window = full_scaled[start : n_train + i].reshape(1, self.lookback, 1)
+                x = torch.from_numpy(window).to(device)
+                preds_scaled[i] = self.model_(x).cpu().item()
+
+        preds = self._inverse_standardise(preds_scaled)
+        return pd.Series(preds, index=y_test.index, name="lstm_forecast")
+
+
