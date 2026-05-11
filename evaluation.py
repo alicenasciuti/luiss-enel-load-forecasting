@@ -40,3 +40,76 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
+
+# ---------------------------------------------------------------------------
+# Metrics
+# ---------------------------------------------------------------------------
+
+def _align(y_true: pd.Series, y_pred: pd.Series) -> tuple[np.ndarray, np.ndarray]:
+    """Align two series on their common index and return clean numpy arrays."""
+    common = y_true.index.intersection(y_pred.index)
+    if len(common) == 0:
+        raise ValueError("y_true and y_pred have no overlapping index.")
+    a = y_true.loc[common].to_numpy(dtype=float)
+    b = y_pred.loc[common].to_numpy(dtype=float)
+    mask = ~(np.isnan(a) | np.isnan(b))
+    return a[mask], b[mask]
+
+
+def rmse(y_true: pd.Series, y_pred: pd.Series) -> float:
+    """Root Mean Squared Error."""
+    a, b = _align(y_true, y_pred)
+    return float(np.sqrt(np.mean((a - b) ** 2)))
+
+
+def mae(y_true: pd.Series, y_pred: pd.Series) -> float:
+    """Mean Absolute Error."""
+    a, b = _align(y_true, y_pred)
+    return float(np.mean(np.abs(a - b)))
+
+
+def mape(y_true: pd.Series, y_pred: pd.Series, eps: float = 1e-3) -> float:
+    """
+    Mean Absolute Percentage Error (in percent).
+
+    Not used as the primary metric because the target can be close to zero
+    in some hours (low household consumption); `eps` is added to the
+    denominator only to avoid division by zero.
+    """
+    a, b = _align(y_true, y_pred)
+    denom = np.where(np.abs(a) < eps, eps, np.abs(a))
+    return float(100.0 * np.mean(np.abs((a - b) / denom)))
+
+
+def compute_metrics(y_true: pd.Series, y_pred: pd.Series) -> dict:
+    """Return RMSE, MAE and MAPE in a single dictionary."""
+    return {
+        "RMSE": rmse(y_true, y_pred),
+        "MAE": mae(y_true, y_pred),
+        "MAPE_%": mape(y_true, y_pred),
+    }
+
+
+def compare_models(
+    results: dict[str, pd.Series],
+    y_true: pd.Series,
+) -> pd.DataFrame:
+    """
+    Build a comparison table for a collection of model predictions.
+
+    Parameters
+    ----------
+    results : dict
+        Maps model name (str) to its predicted pandas.Series.
+    y_true : pandas.Series
+        Ground-truth series (test set).
+
+    Returns
+    -------
+    pandas.DataFrame
+        Rows are model names, columns are RMSE, MAE, MAPE_%. Sorted by
+        RMSE ascending (best model on top).
+    """
+    rows = {name: compute_metrics(y_true, pred) for name, pred in results.items()}
+    table = pd.DataFrame(rows).T
+    return table.sort_values("RMSE")
