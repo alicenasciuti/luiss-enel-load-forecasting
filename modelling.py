@@ -96,3 +96,130 @@ class NaiveSeasonalForecaster:
         return preds
 
 
+# ---------------------------------------------------------------------------
+# 2. SARIMA
+# ---------------------------------------------------------------------------
+
+class SARIMAForecaster:
+    """
+    SARIMA(p, d, q)(P, D, Q, s) wrapper around `statsmodels.SARIMAX`.
+
+    The default seasonal period s=24 captures the daily cycle that the EDA
+    identified as the strongest seasonality of the household load series.
+    The default order (2,0,1)(1,1,1,24) follows the ACF/PACF analysis on
+    the training set (see Step 4.3 of the notebook): two AR lags, one MA
+    lag, one seasonal AR + MA lag, and one seasonal differentiation to
+    handle the daily periodicity.
+
+    `enforce_stationarity` and `enforce_invertibility` are set to False by
+    default: on long, noisy real-world series, enforcing them often
+    prevents the optimiser from converging without a meaningful gain in
+    fit quality. This is the standard set-up reported in the applied
+    literature on energy load forecasting.
+
+    Parameters
+    ----------
+    order : tuple of int
+        Non-seasonal (p, d, q) ARIMA order.
+    seasonal_order : tuple of int
+        Seasonal (P, D, Q, s) order. s should match the dominant seasonal
+        period (24 for daily seasonality on hourly data).
+    enforce_stationarity, enforce_invertibility : bool
+        Forwarded to SARIMAX. Default False (see above).
+    """
+
+    def __init__(
+        self,
+        order: tuple = (2, 0, 1),
+        seasonal_order: tuple = (1, 1, 1, 24),
+        enforce_stationarity: bool = False,
+        enforce_invertibility: bool = False,
+    ):
+        self.order = order
+        self.seasonal_order = seasonal_order
+        self.enforce_stationarity = enforce_stationarity
+        self.enforce_invertibility = enforce_invertibility
+        self.results_ = None
+
+    def fit(self, y_train: pd.Series) -> "SARIMAForecaster":
+        """
+        Fit the SARIMAX model on `y_train`.
+
+        Note: SARIMA fitting on long hourly series is computationally
+        expensive. For this project we restrict the training window to the
+        last year of the train set (see the notebook). LSTM is instead
+        trained on the full train set, since recurrent models benefit
+        from more data.
+        """
+        from statsmodels.tsa.statespace.sarimax import SARIMAX
+
+        model = SARIMAX(
+            y_train,
+            order=self.order,
+            seasonal_order=self.seasonal_order,
+            enforce_stationarity=self.enforce_stationarity,
+            enforce_invertibility=self.enforce_invertibility,
+        )
+        # `disp=False` suppresses the verbose optimiser output.
+        self.results_ = model.fit(disp=False)
+        return self
+
+    def forecast_static(self, steps: int) -> pd.Series:
+        """
+        Static multi-step forecast: predict `steps` hours ahead starting
+        immediately after the training series, without observing any new
+        data along the way.
+
+        Used for the diagnostic "one-week forecast" plot in the report.
+        """
+        if self.results_ is None:
+            raise RuntimeError("Call .fit() before .forecast_static().")
+        forecast = self.results_.get_forecast(steps=steps)
+        mean = forecast.predicted_mean
+        mean.name = "sarima_forecast_static"
+        return mean
+
+    def forecast_rolling(self, y_test: pd.Series) -> pd.Series:
+        """
+        Rolling one-step-ahead forecast on `y_test`.
+
+        At each step t the model:
+        1. predicts the value at t using its current state;
+        2. appends the *actual* observed value y_test[t] to the state
+           (without re-estimating the parameters: `refit=False`).
+
+        This is the same fair-comparison protocol used for the Naive
+        baseline and the LSTM model.
+
+        Parameters
+        ----------
+        y_test : pandas.Series
+            Test series, hourly indexed, immediately following the training
+            series.
+
+        Returns
+        -------
+        pandas.Series
+            Forecast indexed exactly as `y_test`.
+        """
+        if self.results_ is None:
+            raise RuntimeError("Call .fit() before .forecast_rolling().")
+
+        results = self.results_
+        preds = np.zeros(len(y_test), dtype=float)
+
+        for i in range(len(y_test)):
+            # 1. Predict one step ahead from the current state.
+            preds[i] = float(results.forecast(steps=1).iloc[0])
+            # 2. Update the state with the actual observed value (no refit).
+            results = results.append(y_test.iloc[i : i + 1], refit=False)
+
+        return pd.Series(preds, index=y_test.index, name="sarima_forecast")
+
+    def summary(self):
+        """Return the statsmodels summary table (used in the report)."""
+        if self.results_ is None:
+            raise RuntimeError("Call .fit() before .summary().")
+        return self.results_.summary()
+
+
