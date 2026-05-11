@@ -46,7 +46,7 @@ import matplotlib.pyplot as plt
 # ---------------------------------------------------------------------------
 
 def _align(y_true: pd.Series, y_pred: pd.Series) -> tuple[np.ndarray, np.ndarray]:
-    """Align two series on their common index and return clean numpy arrays."""
+    
     common = y_true.index.intersection(y_pred.index)
     if len(common) == 0:
         raise ValueError("y_true and y_pred have no overlapping index.")
@@ -57,32 +57,26 @@ def _align(y_true: pd.Series, y_pred: pd.Series) -> tuple[np.ndarray, np.ndarray
 
 
 def rmse(y_true: pd.Series, y_pred: pd.Series) -> float:
-    """Root Mean Squared Error."""
+    
     a, b = _align(y_true, y_pred)
     return float(np.sqrt(np.mean((a - b) ** 2)))
 
 
 def mae(y_true: pd.Series, y_pred: pd.Series) -> float:
-    """Mean Absolute Error."""
+    
     a, b = _align(y_true, y_pred)
     return float(np.mean(np.abs(a - b)))
 
 
 def mape(y_true: pd.Series, y_pred: pd.Series, eps: float = 1e-3) -> float:
-    """
-    Mean Absolute Percentage Error (in percent).
-
-    Not used as the primary metric because the target can be close to zero
-    in some hours (low household consumption); `eps` is added to the
-    denominator only to avoid division by zero.
-    """
+    
     a, b = _align(y_true, y_pred)
     denom = np.where(np.abs(a) < eps, eps, np.abs(a))
     return float(100.0 * np.mean(np.abs((a - b) / denom)))
 
 
 def compute_metrics(y_true: pd.Series, y_pred: pd.Series) -> dict:
-    """Return RMSE, MAE and MAPE in a single dictionary."""
+    
     return {
         "RMSE": rmse(y_true, y_pred),
         "MAE": mae(y_true, y_pred),
@@ -94,22 +88,7 @@ def compare_models(
     results: dict[str, pd.Series],
     y_true: pd.Series,
 ) -> pd.DataFrame:
-    """
-    Build a comparison table for a collection of model predictions.
-
-    Parameters
-    ----------
-    results : dict
-        Maps model name (str) to its predicted pandas.Series.
-    y_true : pandas.Series
-        Ground-truth series (test set).
-
-    Returns
-    -------
-    pandas.DataFrame
-        Rows are model names, columns are RMSE, MAE, MAPE_%. Sorted by
-        RMSE ascending (best model on top).
-    """
+    
     rows = {name: compute_metrics(y_true, pred) for name, pred in results.items()}
     table = pd.DataFrame(rows).T
     return table.sort_values("RMSE")
@@ -126,22 +105,7 @@ def plot_actual_vs_predicted(
     start=None,
     end=None,
 ):
-    """
-    Overlay the actual test series and one or more model forecasts.
-
-    Parameters
-    ----------
-    y_true : pandas.Series
-        Ground-truth values.
-    predictions : dict
-        Maps a label to a forecast pandas.Series indexed like `y_true`.
-    title : str
-        Plot title.
-    start, end : str or pandas.Timestamp, optional
-        If given, restrict the plot to a [start, end] window. Useful to
-        zoom on a representative week instead of plotting thousands of
-        hours.
-    """
+    
     fig, ax = plt.subplots(figsize=(14, 4))
 
     y_plot = y_true.loc[start:end] if (start or end) else y_true
@@ -173,13 +137,7 @@ def plot_residuals(
     y_pred: pd.Series,
     title: str = "Residuals",
 ):
-    """
-    Diagnostic plot for a single model: residuals over time + histogram.
-
-    Residuals are computed as (y_true - y_pred). A well-calibrated model
-    should produce residuals centred around zero, with no visible trend
-    or seasonality in the time plot.
-    """
+    
     common = y_true.index.intersection(y_pred.index)
     a = y_true.loc[common].to_numpy(dtype=float)
     b = y_pred.loc[common].to_numpy(dtype=float)
