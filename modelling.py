@@ -1,3 +1,34 @@
+"""
+modelling.py
+============
+
+Forecasting models for the household electric load forecasting project.
+
+Contents
+--------
+- NaiveSeasonalForecaster: trivial seasonal baseline that predicts
+  y_hat(t) = y(t - period). Used as the reference any non-trivial model
+  must beat.
+- SARIMAForecaster: classical statistical model (Seasonal ARIMA) fitted
+  via statsmodels SARIMAX. Supports static forecast, step-by-step rolling
+  forecast and block-strided rolling forecast (day-ahead protocol).
+- LSTMForecaster: single-layer LSTM implemented in PyTorch. Internally
+  standardises the target using statistics computed on the training set
+  only (no information leakage). Supports both step-by-step and strided
+  rolling forecast under the same day-ahead protocol used for the other
+  models.
+- _make_sliding_windows: private helper to turn a 1-D time series into
+  (X, y) sliding-window tensors for the LSTM.
+
+Role in the project
+-------------------
+This module implements the three forecasting models compared in the
+project (Naive baseline, SARIMA, LSTM). All forecasters share a common
+interface (`fit`, `forecast_rolling`, `forecast_rolling_strided`) so that
+they can be evaluated under the exact same protocol by `evaluation.py`
+and their RMSE / MAE numbers are directly comparable.
+"""
+
 from __future__ import annotations
 
 import numpy as np
@@ -298,7 +329,7 @@ class LSTMForecaster:
             self.history_.to_numpy(dtype=np.float32),
             y_test.to_numpy(dtype=np.float32),
         ])
-        full_scaled = self._standardise(full)
+        full_scaled = self._standardise(full).astype(np.float32)
         n_train = len(self.history_)
         n_test = len(y_test)
 
@@ -307,12 +338,12 @@ class LSTMForecaster:
             i = 0
             while i < n_test:
                 block_len = min(stride, n_test - i)
-                window = full_scaled[n_train + i - self.lookback : n_train + i].copy()
+                window = full_scaled[n_train + i - self.lookback : n_train + i].copy().astype(np.float32)
                 for k in range(block_len):
                     x = torch.from_numpy(window.reshape(1, self.lookback, 1)).to(device)
-                    p = self.model_(x).cpu().item()
+                    p = float(self.model_(x).cpu().item())
                     preds_scaled[i + k] = p
-                    window = np.concatenate([window[1:], [p]])
+                    window = np.concatenate([window[1:], np.array([p], dtype=np.float32)]).astype(np.float32)
                 i += block_len
 
         preds = self._inverse_standardise(preds_scaled)
