@@ -1,37 +1,24 @@
 """
-evaluation.py
-=============
+File Title : Model Evaluation
+File Name  : evaluation.py
 
-Evaluation utilities for the forecasting models defined in `modelling.py`.
+Description:
+Contains the evaluation and performance analysis utilities used
+to assess forecasting model outputs against real observed values.
+This file is expected to implement metric calculation functions,
+prediction comparison systems, residual analysis utilities,
+forecast validation logic, and visualization tools for analysing
+model accuracy, error distributions, and predictive behaviour
+across multiple forecasting approaches.
 
-Contents
---------
-- rmse(y_true, y_pred)        -> Root Mean Squared Error.
-- mae(y_true, y_pred)         -> Mean Absolute Error.
-- mape(y_true, y_pred)        -> Mean Absolute Percentage Error
-                                 (informational only; the target can take
-                                 small values, so MAPE is not used as the
-                                 primary metric).
-- compute_metrics(y_true, y_pred)
-                              -> Dictionary with RMSE, MAE, MAPE.
-- compare_models(results, y_true)
-                              -> Tidy DataFrame comparing several models,
-                                 sorted by RMSE ascending.
-- plot_actual_vs_predicted(y_true, predictions, title, start, end)
-                              -> Overlay of actual values and one or more
-                                 model forecasts (optionally zoomed on a
-                                 time window).
-- plot_residuals(y_true, y_pred, title)
-                              -> Residual plot + histogram for a single
-                                 model.
-
-Role in the project
--------------------
-After the models in `modelling.py` have been trained and have produced
-their forecasts on the test set, this module turns those forecasts into
-the quantitative comparison (RMSE, MAE) and the qualitative diagnostic
-plots (Actual vs Predicted, residuals) that go into Section 3 of the
-technical report.
+Role in Project:
+Provides the evaluation and validation layer of the project
+architecture by transforming model predictions into quantitative
+performance metrics and diagnostic visual analyses. This module
+interacts with the modelling components to compare forecasting
+results, support model selection decisions, validate predictive
+quality, and generate the analytical outputs required for the
+final reporting and performance assessment stages of the project.
 """
 
 from __future__ import annotations
@@ -39,11 +26,6 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-
-
-# ---------------------------------------------------------------------------
-# Metrics
-# ---------------------------------------------------------------------------
 
 def _align(y_true: pd.Series, y_pred: pd.Series) -> tuple[np.ndarray, np.ndarray]:
     
@@ -55,25 +37,21 @@ def _align(y_true: pd.Series, y_pred: pd.Series) -> tuple[np.ndarray, np.ndarray
     mask = ~(np.isnan(a) | np.isnan(b))
     return a[mask], b[mask]
 
-
 def rmse(y_true: pd.Series, y_pred: pd.Series) -> float:
     
     a, b = _align(y_true, y_pred)
     return float(np.sqrt(np.mean((a - b) ** 2)))
-
 
 def mae(y_true: pd.Series, y_pred: pd.Series) -> float:
     
     a, b = _align(y_true, y_pred)
     return float(np.mean(np.abs(a - b)))
 
-
 def mape(y_true: pd.Series, y_pred: pd.Series, eps: float = 1e-3) -> float:
     
     a, b = _align(y_true, y_pred)
     denom = np.where(np.abs(a) < eps, eps, np.abs(a))
     return float(100.0 * np.mean(np.abs((a - b) / denom)))
-
 
 def compute_metrics(y_true: pd.Series, y_pred: pd.Series) -> dict:
     
@@ -83,7 +61,6 @@ def compute_metrics(y_true: pd.Series, y_pred: pd.Series) -> dict:
         "MAPE_%": mape(y_true, y_pred),
     }
 
-
 def compare_models(
     results: dict[str, pd.Series],
     y_true: pd.Series,
@@ -92,11 +69,6 @@ def compare_models(
     rows = {name: compute_metrics(y_true, pred) for name, pred in results.items()}
     table = pd.DataFrame(rows).T
     return table.sort_values("RMSE")
-
-
-# ---------------------------------------------------------------------------
-# Plots
-# ---------------------------------------------------------------------------
 
 def plot_actual_vs_predicted(
     y_true: pd.Series,
@@ -130,7 +102,6 @@ def plot_actual_vs_predicted(
     ax.grid(alpha=0.3)
     fig.tight_layout()
     return fig, ax
-
 
 def plot_residuals(
     y_true: pd.Series,
