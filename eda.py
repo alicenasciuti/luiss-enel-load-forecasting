@@ -1,42 +1,25 @@
 """
-eda.py
-======
+File Title : Exploratory Data Analysis
+File Name  : eda.py
 
-Exploratory Data Analysis (EDA) for the household power consumption dataset.
+Description:
+Contains the exploratory data analysis utilities and statistical
+analysis logic used to inspect, validate, and visualize the
+household power consumption dataset. This file is expected to
+implement analytical functions, visualization systems, statistical
+testing utilities, temporal continuity checks, correlation analysis,
+seasonal decomposition procedures, and diagnostic tools for
+understanding data quality, structure, distributions, trends,
+seasonality, and stationarity characteristics within time series data.
 
-Contents
---------
-- describe_dataset(df): basic shape, time range and descriptive statistics.
-- analyse_missing_values(df): per-column count and percentage of NaN values,
-  plus longest contiguous run of missing values for each column.
-- analyse_temporal_continuity(df, freq='1min'): check whether the timestamp
-  index is continuous at the expected frequency.
-- locate_missing_blocks(df, col, min_gap_minutes=60): list the time windows
-  in which `col` has consecutive NaN values longer than `min_gap_minutes`.
-- plot_full_series(df, col, freq='D', ax=None): plot the time series of `col`
-  resampled at `freq` (default daily mean) over the whole period.
-- plot_zoom(df, col, start, end, ax=None): plot `col` between `start` and
-  `end` (string dates).
-- plot_seasonal_boxplots(df, col): three boxplots side by side, by hour of
-  day, day of week and month.
-- decompose_series(series, period, model='additive'): seasonal decomposition
-  (trend + seasonal + residual) using statsmodels.
-- adf_test(series, name=''): Augmented Dickey-Fuller stationarity test;
-  prints results and returns the dictionary.
-- kpss_test(series, name=''): KPSS stationarity test (complement to ADF);
-  prints results and returns the dictionary.
-- plot_acf_pacf(series, lags, title=''): autocorrelation and partial
-  autocorrelation plots side by side.
-- plot_correlation_heatmap(df, cols=None): Pearson correlation heatmap among
-  numeric columns.
-
-Role in the project
--------------------
-This module contains the functions used during the exploratory phase of the
-project. It does not modify the input DataFrame. The output of these functions
-(numerical summaries and matplotlib figures) is what drives the design choices
-documented in the technical report (target variable, sampling frequency,
-model hyperparameters).
+Role in Project:
+Provides the analytical and diagnostic layer of the project
+architecture by supplying the tools required to investigate dataset
+behaviour before preprocessing and modelling stages. This module
+interacts with the data loading and preprocessing components to
+support informed feature engineering, model selection, parameter
+configuration, and technical decision-making throughout the overall
+machine learning and forecasting pipeline.
 """
 
 from __future__ import annotations
@@ -45,13 +28,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-
-
-
 def describe_dataset(df: pd.DataFrame) -> dict:
-    """
-    Return a dictionary with high-level information about the dataset.
-    """
     info = {
         "n_rows": len(df),
         "n_cols": df.shape[1],
@@ -62,7 +39,6 @@ def describe_dataset(df: pd.DataFrame) -> dict:
         "describe": df.describe(),
     }
     return info
-
 
 def analyse_missing_values(df: pd.DataFrame) -> pd.DataFrame:
     
@@ -90,7 +66,6 @@ def analyse_missing_values(df: pd.DataFrame) -> pd.DataFrame:
     out["longest_gap_minutes"] = pd.Series(longest_gap)
     return out
 
-
 def analyse_temporal_continuity(df: pd.DataFrame, freq: str = "1min") -> dict:
     
     full_range = pd.date_range(df.index.min(), df.index.max(), freq=freq)
@@ -110,7 +85,6 @@ def analyse_temporal_continuity(df: pd.DataFrame, freq: str = "1min") -> dict:
         "expected_step": expected_step,
         "longest_continuous_gap": longest_gap,
     }
-
 
 def locate_missing_blocks(
     df: pd.DataFrame,
@@ -149,9 +123,6 @@ def locate_missing_blocks(
 
     return pd.DataFrame(blocks)
 
-
-
-
 def plot_full_series(df, col, freq="D", ax=None):
     
     series = df[col].resample(freq).mean()
@@ -166,7 +137,6 @@ def plot_full_series(df, col, freq="D", ax=None):
     fig.tight_layout()
     return fig, ax
 
-
 def plot_zoom(df, col, start, end, ax=None):
     
     series = df.loc[start:end, col]
@@ -180,7 +150,6 @@ def plot_zoom(df, col, start, end, ax=None):
     ax.grid(alpha=0.3)
     fig.tight_layout()
     return fig, ax
-
 
 def plot_seasonal_boxplots(df, col):
     
@@ -209,9 +178,6 @@ def plot_seasonal_boxplots(df, col):
     fig.tight_layout()
     return fig, axes
 
-
-
-
 def decompose_series(series: pd.Series, period: int, model: str = "additive"):
     
     from statsmodels.tsa.seasonal import seasonal_decompose
@@ -225,7 +191,6 @@ def decompose_series(series: pd.Series, period: int, model: str = "additive"):
     )
     fig.tight_layout()
     return fig, result
-
 
 def adf_test(series: pd.Series, name: str = "") -> dict:
     
@@ -281,7 +246,7 @@ def kpss_test(series: pd.Series, name: str = "") -> dict:
     print("Critical values:")
     for level, val in out["critical_values"].items():
         print(f"  {level}: {val:.4f}")
-    verdict = "STATIONARY ✅" if out["is_stationary"] else "NON-STATIONARY ❌"
+    verdict = "STATIONARY" if out["is_stationary"] else "NON-STATIONARY"
     print(f"Verdict (alpha=0.05): {verdict}")
     print()
 
@@ -301,7 +266,6 @@ def plot_acf_pacf(series: pd.Series, lags: int = 48, title: str = ""):
         ax.grid(alpha=0.3)
     fig.tight_layout()
     return fig, axes
-
 
 def plot_correlation_heatmap(df: pd.DataFrame, cols=None):
     
