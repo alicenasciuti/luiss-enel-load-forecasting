@@ -1,40 +1,31 @@
 """
-preprocessing.py
-================
+File Title : Data Preprocessing
+File Name  : preprocessing.py
 
-Preprocessing of the household power consumption dataset.
+Description:
+Contains the data preprocessing and transformation logic required
+to prepare the household power consumption dataset for analytical
+and forecasting tasks. This file is expected to implement data
+cleaning procedures, missing value handling systems, temporal
+resampling utilities, feature engineering functions, chronological
+dataset splitting mechanisms, and preprocessing pipeline operations
+that convert raw time series data into structured and model-ready
+datasets.
 
-Contents
---------
-- resample_to_hourly(df, agg='mean'): downsamples the minute-level series
-  to hourly frequency using the chosen aggregation (default: mean).
-- handle_missing(series, short_gap_hours=6): fills NaN values in a series.
-  Short gaps (<= short_gap_hours) are filled by linear interpolation; longer
-  gaps are filled by the value of the same hour on the previous (or next)
-  day, repeated until no NaN remains.
-- add_time_features(df): adds calendar features (hour, dayofweek, month,
-  is_weekend) extracted from the DatetimeIndex.
-- train_test_split_chronological(df, test_size=0.2): splits the DataFrame
-  in two contiguous chunks, the last `test_size` fraction going to the test
-  set. No shuffling.
-- run_preprocessing_pipeline(df_raw, target_col='Global_active_power'):
-  end-to-end function that chains the four steps above and returns
-  (df_train, df_test).
-
-Role in the project
--------------------
-This module transforms the raw minute-level dataset returned by
-`data_loader.load_raw_data()` into the hourly, missing-free,
-feature-augmented DataFrame on which the modelling will be performed.
+Role in Project:
+Provides the data preparation and transformation layer of the
+project architecture by bridging the gap between raw dataset
+ingestion and downstream analytical or modelling components.
+This module interacts with the data loading system to standardize,
+clean, enrich, and partition the dataset before it is consumed
+by exploratory analysis, forecasting models, and evaluation
+workflows throughout the project pipeline.
 """
 
 from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-
-
-# --- Resampling ------------------------------------------------------------
 
 def resample_to_hourly(df: pd.DataFrame, agg: str = "mean") -> pd.DataFrame:
     
@@ -46,27 +37,21 @@ def resample_to_hourly(df: pd.DataFrame, agg: str = "mean") -> pd.DataFrame:
     else:
         raise ValueError(f"Unsupported aggregation: {agg!r}")
 
-
-
 def handle_missing(series: pd.Series, short_gap_hours: int = 6) -> pd.Series:
     
     s = series.copy()
 
-    
     is_na = s.isna()
     if not is_na.any():
         return s
 
-    
     run_id = (is_na != is_na.shift()).cumsum()
     run_lengths = is_na.groupby(run_id).transform("sum")
 
-    
     short_mask = is_na & (run_lengths <= short_gap_hours)
     s_interp = s.interpolate(method="linear", limit_direction="both")
     s = s.where(~short_mask, s_interp)
 
-    
     max_iterations = 30  
     for _ in range(max_iterations):
         if not s.isna().any():
@@ -79,9 +64,6 @@ def handle_missing(series: pd.Series, short_gap_hours: int = 6) -> pd.Series:
 
     return s
 
-
-
-
 def add_time_features(df: pd.DataFrame) -> pd.DataFrame:
     
     out = df.copy()
@@ -90,9 +72,6 @@ def add_time_features(df: pd.DataFrame) -> pd.DataFrame:
     out["month"] = out.index.month
     out["is_weekend"] = (out.index.dayofweek >= 5).astype(int)
     return out
-
-
-
 
 def train_test_split_chronological(
     df: pd.DataFrame,
@@ -104,9 +83,6 @@ def train_test_split_chronological(
     n = len(df)
     cutoff = int(n * (1 - test_size))
     return df.iloc[:cutoff].copy(), df.iloc[cutoff:].copy()
-
-
-
 
 def run_preprocessing_pipeline(
     df_raw: pd.DataFrame,
