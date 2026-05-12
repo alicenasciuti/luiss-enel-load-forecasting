@@ -1,19 +1,23 @@
 """
-utils.py
-========
+File Title : Project Utilities
+File Name  : utils.py
 
-Utility functions used across the whole project.
+Description:
+Contains shared utility functions and project-wide helper logic
+used to support consistent behaviour across multiple modules.
+This file is expected to implement reusable utilities related
+to experiment reproducibility, environment configuration,
+random seed management, framework initialization support,
+system-level helper functions, and other generic services
+required throughout the project lifecycle.
 
-Contents
---------
-- set_global_seed(seed): set the random seed for `random`, `numpy` and (if
-  available) `torch`/`tensorflow` to ensure reproducibility of experiments.
-
-Role in the project
--------------------
-This module does not perform any analysis on its own: it only provides
-helpers that are imported by every other module (data_loader, preprocessing,
-eda, modelling, evaluation) to keep behaviour consistent.
+Role in Project:
+Provides the foundational support layer of the project
+architecture by supplying reusable helper utilities that are
+consumed by data loading, preprocessing, exploratory analysis,
+modelling, and evaluation components. This module helps ensure
+consistency, reproducibility, and centralized management of
+common operations across the entire project pipeline.
 """
 
 from __future__ import annotations
@@ -22,7 +26,6 @@ import os
 import random
 
 import numpy as np
-
 
 def set_global_seed(seed: int = 42) -> None:
     
