@@ -57,38 +57,23 @@ Before running `01_eda.ipynb`, make sure that the dataset is available in the pa
 ## Requirements
 ---
 
-## How to Run the Code
+The project was developed using Python 3.12.13.
 
-The recommended way to reproduce the project is to run the notebook:
+Main libraries used:
 
 ```text
-01_eda.ipynb
+numpy
+pandas
+matplotlib
+scikit-learn
+statsmodels
+xgboost
+lightgbm
+seaborn
 ```
 
-The notebook performs the following steps:
-
-1. Mount Google Drive (when running on Google Colab).
-2. Clone the GitHub repository.
-3. Add the repository folder to the Python path.
-4. Import the project modules.
-5. Load the raw dataset using `load_raw_data(path)`.
-6. Run preprocessing and exploratory data analysis.
-7. Train the forecasting models.
-8. Evaluate the models and generate the final plots and metrics.
-
-Example setup used in Google Colab:
-
-```python
-from google.colab import drive
-drive.mount('/content/drive')
-```
+The complete list of installed libraries can be generated with:
 
 ```bash
-rm -rf /content/repo
-git clone https://github.com/alicenasciuti/luiss-enel-load-forecasting.git /content/repo
-```
-
-```python
-import sys
-sys.path.insert(0, '/content/repo')
+pip list
 ```
