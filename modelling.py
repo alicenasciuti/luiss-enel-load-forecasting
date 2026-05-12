@@ -1,39 +1,31 @@
 """
-modelling.py
-============
+File Title : Forecasting Models
+File Name  : modelling.py
 
-Forecasting models for the household electric load forecasting project.
+Description:
+Contains the forecasting models, predictive algorithms, and
+time series learning systems used for household electrical load
+forecasting. This file is expected to implement statistical and
+machine learning forecasting classes, model training procedures,
+prediction generation logic, rolling forecast systems, sequence
+windowing utilities, parameter configuration mechanisms, and
+deep learning architectures required for time series prediction
+tasks and comparative forecasting experiments.
 
-Contents
---------
-- NaiveSeasonalForecaster: trivial seasonal baseline that predicts
-  y_hat(t) = y(t - period). Used as the reference any non-trivial model
-  must beat.
-- SARIMAForecaster: classical statistical model (Seasonal ARIMA) fitted
-  via statsmodels SARIMAX. Supports static forecast, step-by-step rolling
-  forecast and block-strided rolling forecast (day-ahead protocol).
-- LSTMForecaster: single-layer LSTM implemented in PyTorch. Internally
-  standardises the target using statistics computed on the training set
-  only (no information leakage). Supports both step-by-step and strided
-  rolling forecast under the same day-ahead protocol used for the other
-  models.
-- _make_sliding_windows: private helper to turn a 1-D time series into
-  (X, y) sliding-window tensors for the LSTM.
-
-Role in the project
--------------------
-This module implements the three forecasting models compared in the
-project (Naive baseline, SARIMA, LSTM). All forecasters share a common
-interface (`fit`, `forecast_rolling`, `forecast_rolling_strided`) so that
-they can be evaluated under the exact same protocol by `evaluation.py`
-and their RMSE / MAE numbers are directly comparable.
+Role in Project:
+Provides the core modelling and prediction layer of the project
+architecture by implementing the forecasting approaches evaluated
+throughout the pipeline. This module interacts with the data
+loading, preprocessing, exploratory analysis, and evaluation
+components to train predictive models, generate forecasts under
+shared evaluation protocols, and support comparative performance
+analysis across multiple forecasting methodologies.
 """
 
 from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-
 
 class NaiveSeasonalForecaster:
 
@@ -68,7 +60,6 @@ class NaiveSeasonalForecaster:
         preds = shifted.loc[y_test.index]
         preds.name = "naive_forecast"
         return preds
-
 
 class SARIMAForecaster:
 
@@ -160,7 +151,6 @@ class SARIMAForecaster:
             raise RuntimeError("Call .fit() before .summary().")
         return self.results_.summary()
 
-
 def _make_sliding_windows(
     series: np.ndarray,
     lookback: int,
@@ -178,7 +168,6 @@ def _make_sliding_windows(
         X[i, :, 0] = series[i : i + lookback]
         y[i] = series[i + lookback]
     return X, y
-
 
 class LSTMForecaster:
 
