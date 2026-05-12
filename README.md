@@ -51,3 +51,31 @@ load_raw_data(path)
 where `path` is the location of the raw `.txt` file.
 
 Before running `01_eda.ipynb`, make sure that the dataset is available in the path specified inside the notebook.
+
+---
+
+## Requirements
+
+The project was developed and tested using:
+
+```text
+Python 3.12.13
+```
+
+Main libraries used in the project:
+
+```text
+numpy==2.0.2
+pandas==2.2.2
+matplotlib==3.10.0
+statsmodels==0.14.6
+scikit-learn==1.6.1
+torch==2.10.0
+tensorflow==2.20.0
+```
+
+To install the required dependencies:
+
+```bash
+pip install -r requirements.txt
+```
