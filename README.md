@@ -72,7 +72,7 @@ lightgbm
 seaborn
 ```
 
-The complete environment configuration is available in `requirements.txt`.
+The complete environment configuration is available in [requirements.txt](requirements.txt).
 
 ---
 
