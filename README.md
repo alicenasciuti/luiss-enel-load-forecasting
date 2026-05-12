@@ -50,4 +50,4 @@ load_raw_data(path)
 
 where `path` is the location of the raw `.txt` file.
 
-Before running the notebook, make sure that the dataset is available in the path specified inside the notebook.
+Before running `01_eda.ipynb`, make sure that the dataset is available in the path specified inside the notebook.
