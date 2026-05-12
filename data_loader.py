@@ -3,15 +3,22 @@ File Title : Data Loader
 File Name  : data_loader.py
 
 Description:
-Contains the utilities and constants responsible for loading the raw
-household electric power consumption dataset, parsing timestamps,
-handling missing values, and converting measurement columns into the
-appropriate numerical formats.
+Contains the data ingestion and loading logic responsible for
+reading the raw household power consumption dataset, validating
+dataset availability, parsing timestamp information, handling
+missing values, and converting raw measurements into structured
+numerical formats. This file is expected to implement constants,
+utility functions, and data-loading procedures that transform
+raw source files into standardized pandas DataFrame objects
+ready for downstream processing and analysis.
 
 Role in Project:
-Acts as the main data ingestion layer of the project by providing the
-initial structured DataFrame used by all downstream modules, including
-preprocessing, exploratory analysis, modelling, and evaluation.
+Acts as the entry point of the project data pipeline by providing
+the foundational dataset structure consumed by preprocessing,
+exploratory analysis, feature engineering, modelling, and
+evaluation components. This module ensures that all subsequent
+systems operate on a clean, consistent, and correctly formatted
+data representation across the entire project architecture.
 """
 
 from __future__ import annotations
