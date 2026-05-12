@@ -72,11 +72,7 @@ lightgbm
 seaborn
 ```
 
-The complete list of installed libraries can be generated with:
-
-```bash
-pip list
-```
+The complete environment configuration is available in `requirements.txt`.
 
 ---
 
