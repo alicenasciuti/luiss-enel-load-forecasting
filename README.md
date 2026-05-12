@@ -29,6 +29,7 @@ The project is organised into separate Python modules, each one with a specific 
 
 - `utils.py`  
   Contains helper and reproducibility functions shared across the project.
+  
   ---
 
 ## Dataset
@@ -39,3 +40,7 @@ Expected raw dataset filename:
 
 ```text
 household_power_consumption.txt
+The raw dataset is loaded through the function:
+
+```python
+load_raw_data(path)
