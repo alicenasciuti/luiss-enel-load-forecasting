@@ -1,24 +1,17 @@
 """
-data_loader.py
-==============
+File Title : Data Loader
+File Name  : data_loader.py
 
-Loading of the raw `Individual Household Electric Power Consumption` dataset
-(UCI Machine Learning Repository) used in the Enel Global ICT project.
+Description:
+Contains the utilities and constants responsible for loading the raw
+household electric power consumption dataset, parsing timestamps,
+handling missing values, and converting measurement columns into the
+appropriate numerical formats.
 
-Contents
---------
-- RAW_FILENAME: expected filename of the raw dataset.
-- DATE_COL, TIME_COL, NUMERIC_COLS: column names present in the raw file.
-- load_raw_data(path): reads `household_power_consumption.txt`, parses
-  Date+Time into a single DatetimeIndex, converts '?' tokens into NaN and
-  casts the seven measurement columns to float64. Returns a pandas
-  DataFrame indexed by timestamp.
-
-Role in the project
--------------------
-This is the very first step of the pipeline. Every other module
-(preprocessing, eda, modelling, evaluation) starts from the DataFrame
-returned by `load_raw_data()`.
+Role in Project:
+Acts as the main data ingestion layer of the project by providing the
+initial structured DataFrame used by all downstream modules, including
+preprocessing, exploratory analysis, modelling, and evaluation.
 """
 
 from __future__ import annotations
