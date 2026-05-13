@@ -46,6 +46,11 @@ NUMERIC_COLS = [
     "Sub_metering_3",
 ]
 
+UCI_DATASET_URL = (
+    "https://archive.ics.uci.edu/static/public/235/"
+    "individual+household+electric+power+consumption.zip"
+)
+
 
 def load_raw_data(path) -> pd.DataFrame:
     
