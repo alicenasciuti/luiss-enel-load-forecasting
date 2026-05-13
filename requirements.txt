@@ -1,8 +1,9 @@
-Python 3.11.9
+# Project: LUISS x Enel Global ICT — Electric Load Forecasting
 
-numpy==2.2.6
-pandas==2.2.3
+Python 3.12.13
+
+numpy==2.0.2
+pandas==2.2.2
 matplotlib==3.10.0
-statsmodels==0.14.4
-torch==2.5.1
-tensorflow==2.18.0
+statsmodels==0.14.6
+torch==2.10.0+cpu
