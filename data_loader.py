@@ -23,7 +23,10 @@ data representation across the entire project architecture.
 
 from __future__ import annotations
 
+import io
+import zipfile
 from pathlib import Path
+from urllib.request import urlopen
 
 import numpy as np
 import pandas as pd
