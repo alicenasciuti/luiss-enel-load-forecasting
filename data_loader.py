@@ -51,6 +51,35 @@ UCI_DATASET_URL = (
     "individual+household+electric+power+consumption.zip"
 )
 
+def ensure_dataset(path) -> Path:
+    
+    raw_path = Path(path)
+
+    if raw_path.exists():
+        return raw_path
+
+    raw_path.parent.mkdir(parents=True, exist_ok=True)
+
+    print(f"[data_loader] Raw dataset not found at {raw_path}.")
+    print(f"[data_loader] Downloading from UCI: {UCI_DATASET_URL}")
+    with urlopen(UCI_DATASET_URL) as response:
+        zip_bytes = response.read()
+
+    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+        member = next(
+            (name for name in zf.namelist() if name.endswith(RAW_FILENAME)),
+            None,
+        )
+        if member is None:
+            raise RuntimeError(
+                f"{RAW_FILENAME} not found inside the UCI archive."
+            )
+        with zf.open(member) as src, open(raw_path, "wb") as dst:
+            dst.write(src.read())
+
+    print(f"[data_loader] Dataset saved to {raw_path}.")
+    return raw_path
+
 
 def load_raw_data(path) -> pd.DataFrame:
     
