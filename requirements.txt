@@ -1,6 +1,5 @@
 # Project: LUISS x Enel Global ICT — Electric Load Forecasting
 
-
 numpy==2.0.2
 pandas==2.2.2
 matplotlib==3.10.0
