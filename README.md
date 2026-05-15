@@ -9,7 +9,7 @@ SARIMA, and an LSTM.
 
 ## 1. Requirements
 
-- Python **3.12.13**
+- Python **3.12.4**
 - Dependencies pinned in `requirements.txt`
 
 Install everything in a clean virtual environment:
