@@ -1,129 +1,93 @@
-# luiss-enel-load-forecasting
+# LUISS x Enel Global ICT — Electric Load Forecasting
 
-Time Series Forecasting for Electric Load — LUISS AI Techniques x Enel Global ICT Project Work.
-
-This repository contains the source code used to load, preprocess, explore, model and evaluate the `Individual Household Electric Power Consumption` dataset from the UCI Machine Learning Repository.
-
-The goal of the project is to forecast household electric load using time series forecasting techniques and compare different models under the same evaluation protocol.
-
----
-
-## Repository Structure
-
-The project is organised into separate Python modules, each one with a specific role in the pipeline:
-
-- `data_loader.py`  
-  Loads the raw dataset and converts the date and time columns into a timestamp index.
-
-- `preprocessing.py`  
-  Cleans the data, handles missing values, resamples the time series and prepares the train/test split.
-
-- `eda.py`  
-  Performs exploratory data analysis, visualisations and statistical checks on the dataset.
-
-- `modelling.py`  
-  Implements the forecasting models used in the project.
-
-- `evaluation.py`  
-  Computes evaluation metrics and compares model performances.
-
-- `utils.py`  
-  Contains helper and reproducibility functions shared across the project.
-  
-  ---
-
-## Dataset
-
-The project uses the `Individual Household Electric Power Consumption` dataset from the UCI Machine Learning Repository.
-
-Expected raw dataset filename:
-
-```text
-household_power_consumption.txt
-```
-
-The raw dataset is loaded through the function:
-
-```python
-load_raw_data(path)
-```
-
-where `path` is the location of the raw `.txt` file.
-
-Before running `01_eda.ipynb`, make sure that the dataset is available in the path specified inside the notebook.
+End-to-end pipeline for short-term household electric load forecasting on the
+UCI *Individual Household Electric Power Consumption* dataset. Three models are
+compared under the same day-ahead rolling protocol: a seasonal Naive baseline,
+SARIMA, and an LSTM.
 
 ---
 
-## Requirements
----
+## 1. Requirements
 
-The project was developed using Python 3.12.13.
+- Python **3.12.13**
+- Dependencies pinned in `requirements.txt`
 
-Main libraries used:
-
-```text
-numpy
-pandas
-matplotlib
-scikit-learn
-statsmodels
-xgboost
-lightgbm
-seaborn
-```
-
-The complete environment configuration is available in [requirements.txt](requirements.txt).
-
----
-
-## How to Run the Code
-
-The recommended way to reproduce the project is to run the notebook:
-
-```python
-01_eda.ipynb
-```
-
-The notebook performs the following steps:
-
-1. Mount Google Drive (when running on Google Colab).
-2. Clone the GitHub repository.
-3. Add the repository folder to the Python path.
-4. Import the project modules.
-5. Load the raw dataset using `load_raw_data(path)`.
-6. Run preprocessing and exploratory data analysis.
-7. Train the forecasting models.
-8. Evaluate the models and generate the final plots and metrics.
-
-Example setup used in Google Colab:
-
-```python
-from google.colab import drive
-drive.mount('/content/drive')
-```
+Install everything in a clean virtual environment:
 
 ```bash
-rm -rf /content/repo
-git clone https://github.com/alicenasciuti/luiss-enel-load-forecasting.git /content/repo
+python -m venv venv
+source venv/bin/activate          # macOS / Linux
+# .\venv\Scripts\activate         # Windows
+pip install -r requirements.txt
 ```
 
-```python
-import sys
-sys.path.insert(0, '/content/repo')
+Internet access is required at the first run (the dataset is downloaded
+automatically from the UCI ML Repository).
+
+---
+
+## 2. How to reproduce the results
+
+A single command runs the full pipeline end-to-end:
+
+```bash
+python main.py
 ```
 
-## Reproducibility
+This will, in order:
 
-To guarantee reproducibility of the experiments:
+1. **Acquire the dataset** — downloads `household_power_consumption.txt` from
+   UCI if it is not already in `data/`.
+2. **Preprocess** — hourly resampling, missing-value handling, chronological
+   80/20 train/test split.
+3. **Fit and forecast** the three models (Naive, SARIMA, LSTM) under a
+   day-ahead rolling protocol (stride = 24 hours).
+4. **Compute metrics** (RMSE, MAE, MAPE) and save the comparison table to
+   `outputs/metrics_comparison.csv`.
+5. **Save figures** (Actual vs Predicted and per-model residual plots) to
+   `outputs/`.
 
-- The dataset is loaded from a fixed path.
+To force a full re-training and ignore any cached predictions, run:
 
-- The preprocessing pipeline is deterministic.
+```bash
+python main.py --no-cache
+```
 
-- The same train/test split is reused across experiments.
+### Expected runtime (CPU)
 
-- Evaluation metrics are computed consistently for all models.
+| Step | Time |
+|------|------|
+| Data download (first run only) | ~30 s |
+| Preprocessing | ~10 s |
+| Naive baseline | < 1 s |
+| SARIMA fit + rolling forecast | 5-20 min |
+| LSTM training + forecast | 4-10 min |
+| Metrics and figures | < 30 s |
+| **Total (first run)** | **~25-35 min** |
+| **Total (cached run)** | **~30 s** |
 
-- All figures and numerical results are generated directly from the notebook execution.
+---
 
-Running the notebook from top to bottom reproduces the complete workflow and results.
+## 3. Project structure
+
+```
+src/
+├── main.py              Orchestrator. Single entry point.
+├── data_loader.py       Dataset download and parsing.
+├── preprocessing.py     Resampling, missing-value handling, train/test split.
+├── eda.py               Exploratory analysis utilities.
+├── modelling.py         Naive, SARIMA, LSTM forecasters.
+├── evaluation.py        Metrics and comparison plots.
+├── utils.py             Global random seed.
+├── requirements.txt
+└── README.MD
+```
+
+After execution, two additional folders are created:
+
+```
+src/
+├── cache/               Cached predictions (CSV, one file per model).
+└── outputs/             Final deliverables: metrics table and figures.
+```
+
