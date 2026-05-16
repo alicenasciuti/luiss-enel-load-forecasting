@@ -131,7 +131,7 @@ python main.py --no-cache
 ## 4. Expected runtime
 | Step                              | Time           |
 |-----------------------------------|----------------|
-| **Total (first run)**             | **~25–35 min** |
+| **Total (first run)**             | **~20–35 min** |
 | **Total (cached run)**            | **~30 s**      |
 
 
