@@ -20,7 +20,6 @@ End-to-end pipeline for short-term household electric load forecasting on the UC
 
 - **Python 3.12.4** (any Python 3.12.x should work, but 3.12.4 is the tested version)
 - An active internet connection on the first run (the dataset is downloaded automatically from the UCI ML Repository)
-- Approximately **500 MB of free disk space** (for the virtual environment, the dataset, and the outputs)
 
 Dependencies pinned in `requirements.txt`:
 
